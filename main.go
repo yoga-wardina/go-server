@@ -2,17 +2,23 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"go-server/Routes"
+
+	"github.com/gorilla/mux"
 )
 
 func main() {
-	http.HandleFunc("/", Routes.RootHandler)
-	http.HandleFunc("/users", Routes.UsersHandler)
+	// Initialize a new mux router
+	r := mux.NewRouter()
 
-	fmt.Println("Server is running on http://localhost:8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		fmt.Println("Error starting server:", err)
-	}
+	// Register routes
+	Routes.RegisterRoutes(r)
+
+	// Start the server
+	port := 8080
+	fmt.Printf("Server is running on http://localhost:%d\n", port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), r))
 }

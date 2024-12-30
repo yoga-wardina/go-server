@@ -5,6 +5,7 @@ go 1.23.4
 require (
 	github.com/go-redis/redis/v9 v9.0.0-rc.2
 	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/gorilla/mux v1.8.1
 	github.com/joho/godotenv v1.5.1
 	go.mongodb.org/mongo-driver v1.17.1
 	golang.org/x/net v0.21.0
