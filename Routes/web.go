@@ -3,10 +3,9 @@ package Routes
 import (
 	"context"
 	"encoding/json"
+	"go-server/config"
 	"net/http"
 	"time"
-
-	"go-server/Config"
 
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -18,7 +17,7 @@ func RootHandler(w http.ResponseWriter, r *http.Request) {
 
 func UsersHandler(w http.ResponseWriter, r *http.Request) {
 	// Connect to the "users" collection
-	collection := Config.MongoClient.Database("go-db").Collection("users")
+	collection := config.MongoClient.Database("goDB").Collection("users")
 
 	// Fetch all documents
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
