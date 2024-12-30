@@ -3,9 +3,9 @@ package Routes
 import (
 	"net/http"
 
-	"go-server/Middleware"
+	"go-server/middleware"
 
-	"go-server/Handlers"
+	"go-server/handler"
 
 	"github.com/gorilla/mux"
 )
@@ -13,11 +13,13 @@ import (
 
 func RegisterRoutes(r *mux.Router) {
 	// Route with middleware
-	r.Handle("/protected", Middleware.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Handle("/protected", middleware.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("This is a protected route"))
 	})))
 
 	// Other routes
-	r.HandleFunc("/", Handlers.RootHandler)
-	r.HandleFunc("/users", Handlers.UsersHandler)
+	r.HandleFunc("/", handler.RootHandler).Methods("GET")
+	r.HandleFunc("/users", handler.UsersHandler).Methods("GET")
+	r.HandleFunc("/user/create", handler.CreateUserHandler).Methods("POST")
+	r.HandleFunc("/auth/login", handler.LoginHandler).Methods("POST")
 }

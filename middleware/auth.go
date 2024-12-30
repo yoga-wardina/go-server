@@ -1,4 +1,4 @@
-package Middleware
+package middleware
 
 import (
 	"context"
@@ -71,7 +71,8 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized: token not found in Redis", http.StatusUnauthorized)
 			return
 		}
-		fmt.Println("Token found in Redis:", val) 
+		
+		fmt.Println("Token found in Redis:", val)
 		next.ServeHTTP(w, r)
 	})
 }

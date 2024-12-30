@@ -11,13 +11,10 @@ import (
 )
 
 func main() {
-	// Initialize a new mux router
-	r := mux.NewRouter()
+	r := mux.NewRouter().StrictSlash(true)
 
-	// Register routes
 	Routes.RegisterRoutes(r)
 
-	// Start the server
 	port := 8080
 	fmt.Printf("Server is running on http://localhost:%d\n", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", port), r))
