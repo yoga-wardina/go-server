@@ -62,13 +62,17 @@ func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 		utils.JSONResponse(w, http.StatusInternalServerError, "Error hashing password", nil)
 		return
 	}
-	user.Password = hashedPassword
 
 	user.ID = primitive.NewObjectID()
+	user.Password = hashedPassword
 	user.IsAdmin = false
 	user.CreatedAt = time.Now()
 	user.UpdatedAt = time.Now()
 	user.LastLogin = time.Time{}
+	user.Status = models.StatusOnline
+	user.Subscription.PrivilegeLevel = 1
+	user.Subscription.IsActive = false
+	
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -116,7 +120,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err :=bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password))
+	err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password))
 	if err!= nil {
         utils.JSONResponse(w, http.StatusUnauthorized, "Invalid credentials", nil)
         return
@@ -135,5 +139,4 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
     config.RedisClient.Set(ctx, fmt.Sprintf( "token:%s", foundUser.ID.String()), userJSON, 24*time.Hour)
 	utils.JSONResponse(w, http.StatusOK, "Login successful", map[string]string{"token": token})
-
 }	

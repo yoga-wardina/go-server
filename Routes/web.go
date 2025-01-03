@@ -15,7 +15,7 @@ func RegisterRoutes(r *mux.Router) {
 	// Route with middleware
 	r.Handle("/protected", middleware.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("This is a protected route"))
-	})))
+	}))).Methods("GET")
 
 	// Other routes
 	r.HandleFunc("/", handler.RootHandler).Methods("GET")
