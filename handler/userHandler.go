@@ -122,7 +122,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password))
 	if err!= nil {
-        utils.JSONResponse(w, http.StatusUnauthorized, "Invalid credentials", nil)
+        utils.JSONResponse(w, http.StatusUnauthorized, "nvalid credentials", nil)
         return
     }
 	
