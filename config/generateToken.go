@@ -8,7 +8,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func GenerateToken(id string) (string, error) {
+func GenerateToken(email string) (string, error) {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		return "", err
@@ -19,7 +19,7 @@ func GenerateToken(id string) (string, error) {
 
 	// Define token claims
 	claims := jwt.MapClaims{
-		"_id": id,
+		"_id": email,
 		"exp":    time.Now().Add(time.Hour * 24).Unix(), // Token expires in 24 hours
 	}
 

@@ -126,7 +126,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 	
-	token, err := config.GenerateToken(foundUser.ID.String())
+	token, err := config.GenerateToken(foundUser.Email)
 	if err!= nil {
 		utils.JSONResponse(w, http.StatusInternalServerError, "Error generating token", nil)
 		return
@@ -137,6 +137,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		utils.JSONResponse(w, http.StatusInternalServerError, "Error marshaling user", nil)
         return
 	}
-    config.RedisClient.Set(ctx, fmt.Sprintf( "token:%s", foundUser.ID.String()), userJSON, 24*time.Hour)
+    config.RedisClient.Set(ctx, fmt.Sprintf( "token:%s", foundUser.Email), userJSON, 24*time.Hour)
 	utils.JSONResponse(w, http.StatusOK, "Login successful", map[string]string{"token": token})
 }	

@@ -20,6 +20,7 @@ func RegisterRoutes(r *mux.Router) {
 	// Other routes
 	r.HandleFunc("/", handler.RootHandler).Methods("GET")
 	r.HandleFunc("/users", handler.UsersHandler).Methods("GET")
-	r.HandleFunc("/user/create", handler.CreateUserHandler).Methods("POST")
+	r.HandleFunc("/auth/signup", handler.CreateUserHandler).Methods("POST")
 	r.HandleFunc("/auth/login", handler.LoginHandler).Methods("POST")
+	
 }
