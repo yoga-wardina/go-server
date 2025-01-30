@@ -97,19 +97,25 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+	if r.Body == nil {
+		utils.JSONResponse(w, http.StatusBadRequest, "Input can't be empty", nil)
+        return
+	}
+
     var user models.User
     if err := json.NewDecoder(r.Body).Decode(&user); err!= nil {
         utils.JSONResponse(w, http.StatusBadRequest, "Invalid request payload", nil)
         return
     }
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 
     collection := config.MongoClient.Database("goDB").Collection("users")
 	result := collection.FindOne(ctx, bson.D{{Key: "email", Value: user.Email}})
 	if result.Err()!= nil {
-        utils.JSONResponse(w, http.StatusNotFound, "User not found", nil)
+        utils.JSONResponse(w, http.StatusUnauthorized, "nvalid credentials", nil)
         return
     }
 	
@@ -137,6 +143,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		utils.JSONResponse(w, http.StatusInternalServerError, "Error marshaling user", nil)
         return
 	}
+	
     config.RedisClient.Set(ctx, fmt.Sprintf( "token:%s", foundUser.Email), userJSON, 24*time.Hour)
 	utils.JSONResponse(w, http.StatusOK, "Login successful", map[string]string{"token": token})
 }	
