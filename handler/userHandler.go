@@ -10,11 +10,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func RootHandler(w http.ResponseWriter, r *http.Request) {
@@ -46,52 +45,57 @@ func UsersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func CreateUserHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.JSONResponse(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
-		return
-	}
+    db := config.PostgresConn
+    if db == nil {
+        utils.JSONResponse(w, http.StatusInternalServerError, "Database connection is nil", nil)
+        return
+    }
 
-	var user models.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-		utils.JSONResponse(w, http.StatusBadRequest, "Invalid request payload", nil)
-		return
-	}
+    if r.Method != http.MethodPost {
+        utils.JSONResponse(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
+        return
+    }
 
-	hashedPassword, err := utils.HashPassword(user.Password)
-	if err != nil {
-		utils.JSONResponse(w, http.StatusInternalServerError, "Error hashing password", nil)
-		return
-	}
+    var request models.User
+    if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+        utils.JSONResponse(w, http.StatusBadRequest, "Invalid request payload", nil)
+        return
+    }
 
-	user.ID = primitive.NewObjectID()
-	user.Password = hashedPassword
-	user.IsAdmin = false
-	user.CreatedAt = time.Now()
-	user.UpdatedAt = time.Now()
-	user.LastLogin = time.Time{}
-	user.Status = models.StatusOnline
-	user.Subscription.PrivilegeLevel = 1
-	user.Subscription.IsActive = false
-	
+    hashedPassword, err := utils.HashPassword(request.Password)
+    if err != nil {
+        utils.JSONResponse(w, http.StatusInternalServerError, "Error hashing password", nil)
+        return
+    }
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+    user := models.User{
+        Email:     request.Email,
+        Password:  hashedPassword,
+        Name:      request.Name,
+        IsAdmin:   false,
+        CreatedAt: time.Now(),
+        UpdatedAt: time.Now(),
+        LastLogin: time.Time{}, 
+        Status:    models.StatusOnline,
+        Subscription: models.Subscription{
+            PrivilegeLevel: 1,
+            IsActive:       false,
+            StartDate:      time.Now(),
+            ExpiryDate:     time.Now().AddDate(1, 0, 0), 
+        },
+    }
 
-	collection := config.MongoClient.Database("goDB").Collection("users")
-	_, err = collection.InsertOne(ctx, user)
-	if err != nil {
-		if mongo.IsDuplicateKeyError(err) {
-			utils.JSONResponse(w, http.StatusConflict, "Email already exists", nil)
-			return
-		}
-		utils.JSONResponse(w, http.StatusInternalServerError, "Error creating user", nil)
-		return
-	}
+    if err := db.Create(&user).Error; err != nil {
+        utils.JSONResponse(w, http.StatusInternalServerError, "Error creating user", nil)
+        return
+    }
 
-	utils.JSONResponse(w, http.StatusCreated, "User created successfully", user)
+    utils.JSONResponse(w, http.StatusCreated, "Sign up successful", user)
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	db := config.PostgresConn
+
 	if r.Method!= http.MethodPost {
         utils.JSONResponse(w, http.StatusMethodNotAllowed, "Method not allowed", nil)
         return
@@ -102,8 +106,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
         return
 	}
 
-    var user models.User
-    if err := json.NewDecoder(r.Body).Decode(&user); err!= nil {
+    var request models.User
+    if err := json.NewDecoder(r.Body).Decode(&request); err!= nil {
         utils.JSONResponse(w, http.StatusBadRequest, "Invalid request payload", nil)
         return
     }
@@ -111,39 +115,33 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-
-    collection := config.MongoClient.Database("goDB").Collection("users")
-	result := collection.FindOne(ctx, bson.D{{Key: "email", Value: user.Email}})
-	if result.Err()!= nil {
-        utils.JSONResponse(w, http.StatusUnauthorized, "nvalid credentials", nil)
+    var user models.User
+	result := db.WithContext(ctx).Table("users").Where("email = ?", request.Email).First(&user)
+	if result.Error != nil {
+        utils.JSONResponse(w, http.StatusUnauthorized, "User not found", request)
         return
     }
 	
-	var foundUser models.User
-	
-	if err := result.Decode(&foundUser); err!= nil {
-		utils.JSONResponse(w, http.StatusInternalServerError, "Error decoding user", nil)
-		return
-	}
-
-	err := bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(user.Password))
+	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
 	if err!= nil {
-        utils.JSONResponse(w, http.StatusUnauthorized, "nvalid credentials", nil)
+        utils.JSONResponse(w, http.StatusUnauthorized, "Please check your email and passwords credentials", nil)
         return
     }
 	
-	token, err := config.GenerateToken(foundUser.Email)
+    initToken := uuid.New().String()
+
+	token, err := config.GenerateToken(initToken)
 	if err!= nil {
 		utils.JSONResponse(w, http.StatusInternalServerError, "Error generating token", nil)
 		return
 	}
 
-	userJSON, err := json.Marshal(foundUser)
+	userJSON, err := json.Marshal(user)
 	if err!= nil {
 		utils.JSONResponse(w, http.StatusInternalServerError, "Error marshaling user", nil)
         return
 	}
 	
-    config.RedisClient.Set(ctx, fmt.Sprintf( "token:%s", foundUser.Email), userJSON, 24*time.Hour)
+    config.RedisClient.Set(ctx, fmt.Sprintf( "token:%s", initToken), userJSON, 24*time.Hour)
 	utils.JSONResponse(w, http.StatusOK, "Login successful", map[string]string{"token": token})
 }	

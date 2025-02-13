@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"go-server/config"
 	"log"
 	"net/http"
 
@@ -12,6 +13,9 @@ import (
 )
 
 func main() {
+	config.InitMongo()
+	config.InitPostgres()
+
 	r := mux.NewRouter().StrictSlash(true)
 
 	Routes.RegisterRoutes(r)
