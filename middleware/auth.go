@@ -12,6 +12,23 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+func CORSMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:4000") 
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Handle preflight requests
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		// Call the next handler
+		next.ServeHTTP(w, r)
+	})
+}
 
 func DecodeJWT(tokenString string) (string, error) {
 	secretKey := os.Getenv("JWT_SECRET")
@@ -43,36 +60,37 @@ func DecodeJWT(tokenString string) (string, error) {
 	return "", fmt.Errorf("invalid token claims")
 }
 
+type contextKey string
+
+const userContextKey = contextKey("user")
 
 func AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		
-		authHeader := r.Header.Get("Authorization")
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        authHeader := r.Header.Get("Authorization")
 
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
+        if !strings.HasPrefix(authHeader, "Bearer ") {
+            http.Error(w, "Unauthorized", http.StatusUnauthorized)
+            return
+        }
 
-		token := strings.TrimPrefix(authHeader, "Bearer ")
+        token := strings.TrimPrefix(authHeader, "Bearer ")
 
-		id, err := DecodeJWT(token)
-		if err != nil {
-			http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
-			return
-		}
+        id, err := DecodeJWT(token)
+        if err != nil {
+            http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
+            return
+        }
 
-		redisKey := fmt.Sprintf("token:%s", id)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+        redisKey := fmt.Sprintf("token:%s", id)
+        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer cancel()
 
-		val, err := config.RedisClient.Get(ctx, redisKey).Result()
-		if err != nil {
-			http.Error(w, "Unauthorized: token not found in Redis", http.StatusUnauthorized)
-			return
-		}
-		
-		fmt.Println("Token found in Redis:", val)
-		next.ServeHTTP(w, r)
-	})
+        user, err := config.RedisClient.Get(ctx, redisKey).Result()
+        if err != nil {
+            http.Error(w, "Unauthorized: token not found in Redis", http.StatusUnauthorized)
+            return
+        }
+        ctx = context.WithValue(r.Context(), userContextKey, user)
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
 }
